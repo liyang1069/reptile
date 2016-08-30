@@ -6,18 +6,14 @@ import (
 	"net/http"
 	//"reflect"
 	"regexp"
-	// "strings"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var (
-	desUrl          = "http://www.qiushibaike.com/8hr/page/" //http://www.qiushibaike.com/8hr/page/2/
-	ptnIndexItem    = regexp.MustCompile(`<div.*?author.*?>.*?<img.*?>.*?<h2>.*?</h2>.*?<div.*?content">(.*?)</div>(.*?)<i.*?class="number">(.*?)</i>.*?class="number">(.*?)</i>`)
-	testItem        = regexp.MustCompile("<div class=\"content\">(.|\n)*?</div>(.|\n)*?<i class=\"number\">.*</i>(.|\n)*?<i class=\"number\">.*</i>")
-	testRe          = regexp.MustCompile("a.*")
-	ptnContentRough = regexp.MustCompile(`(?s).*<div class="artcontent">(.*)<div id="zhanwei">.*`)
-	ptnBrTag        = regexp.MustCompile(`<br>`)
-	ptnHTMLTag      = regexp.MustCompile(`(?s)</?.*?>`)
-	ptnSpace        = regexp.MustCompile(`(^\s+)|( )`)
+	desUrl  = "http://www.qiushibaike.com/hot/page/" //http://www.qiushibaike.com/8hr/page/2/
+	ptnItem = regexp.MustCompile("<div class=\"content\">(.|\n)*?</div>(.|\n)*?<i class=\"number\">.*</i>(.|\n)*?<i class=\"number\">.*</i>")
 )
 
 //获取html body and status code
@@ -40,79 +36,62 @@ func Get(url string) (content string, statusCode int) {
 	return
 }
 
-type IndexItem struct {
-	url   string
-	title string
+type JokeItem struct {
+	content string
+	vote    int
+	comment int
 }
 
-func findIndex(content string) (index []IndexItem, err error) {
-	fmt.Println("html_length:", len(content))
-	matches := ptnIndexItem.FindAllStringSubmatch(content, 10000)
-	fmt.Println("html_length:", len(matches))
-	// test_string := "<div class=\"content\">\n你们碰到公司奇葩的规定是什么我不知道，但是我们公司：下午聚餐，不去罚款！！！\n</div><div class=\"content\">\n你们碰到公司奇葩的规定是什么我不知道，但是我们公司：下午聚餐，不去罚款！！！\n</div>"
-	test_matches := testItem.FindAllStringSubmatch(content, 10000)
-	fmt.Println("html_length:", len(test_matches))
-	m := testRe.FindAllStringSubmatch("asdabcnbmabcff", 10000)
-	fmt.Println("html_length:", len(m))
-	index = make([]IndexItem, len(test_matches))
-	for i, item := range test_matches {
-		if i == 0 {
-			fmt.Println(item[0], "aaaaaaaaaaaaaaaaaaaaaaaaaaa\n", item[1], "bbbbbbbbbbbbbbbbbbbbbb\n", item[2], "cccccccccccccccccccc\n")
+// func findIndex(content string) (jokes []JokeItem, err error) {
+func findIndex(content string) {
+	ptn_matches := ptnItem.FindAllStringSubmatch(content, 10000)
+	// fmt.Println("html_length:", len(ptn_matches))
+	jokes := make([]JokeItem, len(ptn_matches))
+	for i, item := range ptn_matches {
+		joke_str := item[0]
+		joke_str = strings.Replace(joke_str, "<div class=\"content\">", "", -1)
+		joke_str = strings.Replace(joke_str, "\n", "", -1)
+		joke_str = strings.Replace(joke_str, "<br>", "\n", -1)
+		array := strings.Split(joke_str, "<i class=\"number\">")
+		content := strings.Split(array[0], "</div>")[0]
+		vote, err_vote := strconv.Atoi(strings.Split(array[1], "</i>")[0])
+		comment, err_com := strconv.Atoi(strings.Split(array[2], "</i>")[0])
+		if err_vote != nil {
+			vote = 0
 		}
-		index[i] = IndexItem{desUrl + item[1], item[2]}
+		if err_com != nil {
+			comment = 0
+		}
+		if vote > 5000 {
+			fmt.Println(content)
+			fmt.Println("=========================")
+		}
+		jokes[i] = JokeItem{content, vote, comment}
 	}
 	return
 }
 
-func readContent(url string) (content string) {
-	raw, statusCode := Get(url)
+func get_jokes(url string) {
+	s, statusCode := Get(url)
 	if statusCode != 200 {
-		fmt.Print("Fail to get the raw data from", url, "\n")
+		fmt.Println("!!!!error!!!!  statusCode=%d  url=%s", statusCode, url)
 		return
 	}
-
-	match := ptnContentRough.FindStringSubmatch(raw)
-	if match != nil {
-		content = match[1]
-	} else {
-		return
-	}
-
-	content = ptnBrTag.ReplaceAllString(content, "\r\n")
-	content = ptnHTMLTag.ReplaceAllString(content, "")
-	content = ptnSpace.ReplaceAllString(content, "")
-	return
+	findIndex(s)
+	// index, _ := findIndex(s)
+	// len(index)
+	// _ == nil
 }
 
 func main() {
 	fmt.Println(`Get index ...`)
-	// str := "i am like cat"
-	// fmt.Println(str)
-	// sp := make([]string, 5)
-	// j := 0
-	// for _, ss := range str {
-	// 	if ss != " " {
-	// 		// if strings.EqualFold(ss, " ") {
-	// 		sp[j] += ss
-	// 	} else {
-	// 		j++
-	// 	}
-	// }
-	// fmt.Println(sp.join(" "))
-	s, statusCode := Get(desUrl)
-	if statusCode != 200 {
-		fmt.Println("!!!!error!!!!  statusCode=%d", statusCode)
-		return
-	}
-	index, _ := findIndex(s)
-	ioutil.WriteFile("fileName.txt", []byte(s), 0644)
+	// index, _ := findIndex(s)
+	// ioutil.WriteFile("fileName.txt", []byte(s), 0644)
 
-	fmt.Println(`Get contents and write to file ...`)
-	for _, item := range index {
-		fmt.Printf("Get content %s from %s and write to file.\n", item.title, item.url)
-		// fileName := fmt.Sprintf("%s.txt", item.title)
-		// content := readContent(item.url)
-		// ioutil.WriteFile(fileName, []byte(content), 0644)
-		// fmt.Printf("Finish writing to %s.\n", fileName)
+	// fmt.Println(len(index))
+	// fmt.Println(`Get contents and write to file ...`)
+	for i := 1; i <= 35; i++ {
+		go get_jokes(desUrl + strconv.Itoa(i) + "/")
 	}
+	time.Sleep(1000 * time.Millisecond)
 }
