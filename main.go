@@ -52,6 +52,7 @@ func findIndex(content string) {
 		joke_str = strings.Replace(joke_str, "<div class=\"content\">", "", -1)
 		joke_str = strings.Replace(joke_str, "\n", "", -1)
 		joke_str = strings.Replace(joke_str, "<br>", "\n", -1)
+		joke_str = strings.Replace(joke_str, "<br/>", "\n", -1)
 		array := strings.Split(joke_str, "<i class=\"number\">")
 		content := strings.Split(array[0], "</div>")[0]
 		vote, err_vote := strconv.Atoi(strings.Split(array[1], "</i>")[0])
